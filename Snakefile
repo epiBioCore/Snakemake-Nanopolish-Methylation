@@ -3,7 +3,14 @@ import pandas as pd
 
 configfile: "config.yaml"
 
-samples = pd.read_table(configfile["sample"],sep = '\t',header=None)
+samples_df = pd.read_table(configfile["sample"],sep = '\t')
+## will want to validate
+samples_df = samples_df.set_index("Sample")
+samples = list(samples_df.index.unique)
+project_dirs = {}
+for s in samples:
+    project_dirs[s] = list(samples_df.loc[s,["Project_dir"]])
+
 
 rule build_index:
     input:
@@ -69,3 +76,52 @@ rule QC:
         pycoQC -f input.summary -a input.bam \
         -o output.html -j output.json
         '''
+
+rule index_fastq:
+    input:
+        summary = rules.QC.input.summary
+        fq = fq ## check
+        f5 = {sample}.fast5 # check
+
+    output:
+        index = "results/fastq_index/{sample}"    ## check
+
+    shell:"""
+        nanopolish index -f input.summary input.f5 input.fq
+     """
+
+rule call_meth:
+    input:
+        genome=config["genome"]
+        fq= fq ## check
+        bam = rules.map_reads.output.bam ## check
+
+    output:
+        meth = "results/Methylation/{sample}_methylation_calls.tsv"    
+
+    threads:
+        config["threads"]
+
+    shell: """
+        nanopolish call-methylation -t {threads} -g input.genome -r input.fq -b input.bam >\
+        output.meth
+        """
+
+rule meth_freq:
+    input:
+        meth = {sample}_meth ## check
+
+    output:
+        freq = results/Methylation/{sample}_frequency.tsv
+
+    script: ##check    
+
+    shell:"""
+    calculate_methylation_frequency.py -s input.meth > output.freq
+    """    
+
+
+
+
+
+            
