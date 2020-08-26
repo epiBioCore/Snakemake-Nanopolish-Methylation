@@ -2,8 +2,5 @@ genome: /home/danielle.perley/Ref/genome.fa
 
 samples: samples.tsv
 
+raw_data: /home/groupdirs/epibiocore/oreo/keithhenry/20-00[4,6]
 threads: 32
-
-minimap_index_opts: 
-
-minimap2_opts:

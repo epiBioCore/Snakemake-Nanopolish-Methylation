@@ -1,5 +1,7 @@
 from snakemake.utils import validate
 import pandas as pd
+import os.path
+import glob
 
 configfile: "config.yaml"
 
@@ -7,10 +9,51 @@ samples_df = pd.read_table(configfile["sample"],sep = '\t')
 ## will want to validate
 samples_df = samples_df.set_index("Sample")
 samples = list(samples_df.index.unique)
+runs = list(samples_df.loc[,"Project_dir"])
 project_dirs = {}
 for s in samples:
-    project_dirs[s] = list(samples_df.loc[s,["Project_dir"]])
+    project_dirs[s] = list(samples_df.loc[s,"Project_dir"])
 
+
+
+         
+def get_fast5(wildcards):
+      
+    f5 = glob(os.path.join(config["raw_data"],wildcard.sample,wildcards.sample,2*,fast5_pass))
+    return(f5)
+
+rule all:
+        input = "results/Methylation/{sample}_frequency.tsv"
+
+
+rule ungzip:
+    input:
+        gfq = glob(os.path.join(configfile["raw_data"],"{sample}","{sample}*","2*","{sample}_fastq_pass.gz").format(sample=sample))
+
+    output:
+        fq = glob(os.path.join(configfile["raw_data"],"{sample}","2*","{sample}_fastq_pass").format(sample=sample))
+    
+    shell:
+        "gunzip  -f {input.gfq} > {output.fq}")
+
+rule cat_fq:
+    input:
+        fqs = glob(os.path.join(configfile["raw_data"],"{sample}","{sample}*","2*","fastq_pass","*fastq").format(sample=sample))
+    output:
+        fq = glob(os.path.join(configfile["raw_data"],"{sample}","{sample}*","2*","{sample}_fastq_pass").format(sample=sample))
+    shell:
+        "cat {input.fqs} > {output.fq}"
+
+rule combine_tech_reps:
+    input:
+        fqs = lambda wildcards: glob(os.path.join(config["raw_data"],"{sample}", "{sample}*","2**","{sample}_fastq_pass").format(sample=wildcards.sample)
+
+    output:
+        fq = glob(os.path.join(config["raw_data"],"{sample}", "{sample}*","{sample}_fastq_pass").format(sample=sample)
+
+    shell: """
+        cat {input} > {output}
+    """
 
 rule build_index:
     input:
@@ -19,30 +62,23 @@ rule build_index:
     output:
         index = "resources/index/genome.mmi"
 
-    params:
-        opts = config["minimap_index_opts"]  
-
-    threads:
+    threads: config["threads"]
         config["threads"]     
 
     shell:'''
-        minimap2 -t {threads} {params.opt} -d {output.index} \
-        {input.genome}
+        minimap2 -t {threads} -d {output.index} {input.genome}
         '''
 
 rule map_reads:
     input:
-        fq = lamba ## figure this out
+        fq = get_fastqs,
         index = rules.build_index.output.index
 
     output:
         bam = "results/alignments/{sample}.bam"
-
-    params:
-        opts = config["minimap2_opts"]     
-
+     
     threads:
-        config["threads"]   
+        config["minimpap2_threads"]   
 
     log:
         "results/logs/minimap2/{sample}.log"
@@ -54,47 +90,67 @@ rule map_reads:
         """
 rule flagstat:
     input:
-        bam = rules.map_reads.output.bam
+        bam = 'results/alignments/{sample}.bam'
 
     output:
         stat = "results/alignments/{sample}_flagstat.txt"        
 
     shell: """
-        samtools flagstat input.bam > output.stat
+        samtools flagstat {input.bam} > {output.stat}
         """
         
 rule QC:
     input:
-        summary = "[samples]/sequencing_summary.txt"
-        ## handle multiple directories
-        bam = "[samples].bam"
+        summary = lambda wildcards: glob(os.path.join(config["raw_dir"],"{sample}" + "{sample}", "2*", "sequencing_summary.txt").format(sample=wildcards.sample),
+        bam = "results/alignments/{samples}.bam"
     output:
-        html = "results/QC/[sample].html"
-        json = "resources/QC/[sample].json"
+        html = "results/QC/{sample}.html",
+        json = "resources/QC/{sample}.json"
 
     shell: '''
-        pycoQC -f input.summary -a input.bam \
-        -o output.html -j output.json
+        pycoQC -f {input.summary} -a {input.bam} \
+        -o {output.html} -j {output.json}
         '''
+
+rule collect_summaries:
+    input:
+        summary = lambda wildcards: glob(os.path.join(config["raw_data"], "{sample}" , "{sample}", "2*", "sequencing_summary.txt").format(sample=wildcards.sample))
+
+    output:
+        out = glob(os.path.join(config["raw_data"],"{sample}","{sample}_sequencing_summaries.txt").format(sample=samples))
+
+    run:
+        with open(output.out,'w') as out:
+            for item in input:
+                 out.write("%s\n" % os.path.abspath(item))
+
 
 rule index_fastq:
     input:
-        summary = rules.QC.input.summary
-        fq = fq ## check
-        f5 = {sample}.fast5 # check
+        summary = lambda wildcards: glob(os.path.join(config["raw_data"],"{sample}","*sequencing_summaries.txt").format(sample=wildcards.sample)),
+        fq = lambda wildcards: glob(os.path.join(config["raw_data"],"{sample}","*fastq").format(sample=wildcards.sample)),
+        f5 = get_fast5 
 
     output:
-        index = "results/fastq_index/{sample}"    ## check
+        fastq_index = glob(os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.index").format(sample=samples),
+        fastq_index_fai = glob(os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.index.fai").format(sample=samples),
+        fastq_index_gzi = glob(os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.index.gzi").format(sample=samples),
+        fastq_index_readdb = glob(os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.index.readdb").format(sample=samples)
 
-    shell:"""
-        nanopolish index -f input.summary input.f5 input.fq
-     """
+    run:
+         fast5_dirs=""
+         for d in input.f5:
+             fast5_dirs += "-d " + d
+         
+        c = "nanopolish index -f {input.summary} " + "fast5_dirs" + " {input.fq}"
+         shell(c)
+    
 
 rule call_meth:
     input:
-        genome=config["genome"]
-        fq= fq ## check
-        bam = rules.map_reads.output.bam ## check
+        genome=config["genome"],
+        fq = lambda wildcards: glob(os.path.join(config["raw_data"],"{sample}","*fastq").format(sample=wildcards.sample)),
+        bam = "results/alignments/{samples}.bam"
 
     output:
         meth = "results/Methylation/{sample}_methylation_calls.tsv"    
@@ -103,21 +159,21 @@ rule call_meth:
         config["threads"]
 
     shell: """
-        nanopolish call-methylation -t {threads} -g input.genome -r input.fq -b input.bam >\
-        output.meth
+        nanopolish call-methylation -t {threads} -g {input.genome} -r {input.fq} -b {input.bam} >\
+        {output.meth}
         """
 
 rule meth_freq:
     input:
-        meth = {sample}_meth ## check
+        meth = "results/Methylation/{sample}_methylation_calls.tsv"    
 
     output:
-        freq = results/Methylation/{sample}_frequency.tsv
+        freq = "results/Methylation/{sample}_frequency.tsv"
 
     script: ##check    
 
     shell:"""
-    calculate_methylation_frequency.py -s input.meth > output.freq
+    calculate_methylation_frequency.py -s {input.meth} > {output.freq}
     """    
 
 
