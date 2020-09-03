@@ -27,16 +27,6 @@ rule all:
         expand("results/Methylation/{sample}_frequency.tsv",sample=samples)
 
 
-rule ungzip:
-    input:
-        gfq = glob.glob(os.path.join(config["raw_data"],"{sample}","{sample}*","2*","{sample}_fastq_pass.gz").format(sample=wildcards.samples))
-
-    output:
-        fq = glob(os.path.join(config["raw_data"],"{sample}","2*","{sample}_fastq_pass").format(sample=wildcards.samples))
-    
-    shell:
-        "gunzip  -f {input.gfq} > {output.fq}"
-
 rule combine_tech_reps:
     input:
         fqs = lambda wildcards: glob(os.path.join(config["raw_data"],"{sample}", "{sample}*","2**","{sample}_fastq_pass").format(sample=wildcards.sample))
@@ -77,7 +67,7 @@ rule map_reads:
         "results/logs/minimap2/{sample}.log"
 
     shell:"""
-        minimap2 -t {threads} -ax map-ont {params.opt} {input.index} {input.fq} \
+        minimap2 -t {threads} -ax map-ont {input.index} {input.fq} \
         2> {log} | samtools view -bh - | samtools sort -@ {threads} -T {sample}.tmp -o out.bam - 
         samtools index output.bam
         """
