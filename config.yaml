@@ -2,5 +2,14 @@ genome: /home/danielle.perley/Ref/mm10.fa
 
 samples: sample_sheet.txt
 
-raw_data: /home/groupdirs/epibiocore/oreo/keithhenry/20-00[46]*
-threads: 32
+raw_data: raw_data
+
+resources:
+  align:
+    threads: 32
+  index_genome:  
+    threads: 5
+  call_meth:
+    threads: 36
+  samtools_sort:
+    threads: 16  
