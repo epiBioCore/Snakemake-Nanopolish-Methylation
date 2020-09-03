@@ -1,6 +1,6 @@
-genome: /home/danielle.perley/Ref/genome.fa
+genome: /home/danielle.perley/Ref/mm10.fa
 
-samples: samples.tsv
+samples: sample_sheet.txt
 
-raw_data: /home/groupdirs/epibiocore/oreo/keithhenry/20-00[4,6]
+raw_data: /home/groupdirs/epibiocore/oreo/keithhenry/20-00[46]*
 threads: 32

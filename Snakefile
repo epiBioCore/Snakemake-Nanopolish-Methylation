@@ -5,11 +5,11 @@ import glob
 
 configfile: "config.yaml"
 
-samples_df = pd.read_table(configfile["sample"],sep = '\t')
+samples_df = pd.read_table(config["samples"],sep = '\t')
 ## will want to validate
 samples_df = samples_df.set_index("Sample")
-samples = list(samples_df.index.unique)
-runs = list(samples_df.loc[,"Project_dir"])
+samples = list(samples_df.index.unique())
+runs = list(samples_df.loc[:,"Project_dir"])
 project_dirs = {}
 for s in samples:
     project_dirs[s] = list(samples_df.loc[s,"Project_dir"])
@@ -19,37 +19,30 @@ for s in samples:
          
 def get_fast5(wildcards):
       
-    f5 = glob(os.path.join(config["raw_data"],wildcard.sample,wildcards.sample,2*,fast5_pass))
+    f5 = glob.glob(os.path.join(config["raw_data"],wildcard.sample,wildcards.sample,"2*","fast5_pass"))
     return(f5)
 
 rule all:
-        input = "results/Methylation/{sample}_frequency.tsv"
+    input: 
+        expand("results/Methylation/{sample}_frequency.tsv",sample=samples)
 
 
 rule ungzip:
     input:
-        gfq = glob(os.path.join(configfile["raw_data"],"{sample}","{sample}*","2*","{sample}_fastq_pass.gz").format(sample=sample))
+        gfq = glob.glob(os.path.join(config["raw_data"],"{sample}","{sample}*","2*","{sample}_fastq_pass.gz").format(sample=wildcards.samples))
 
     output:
-        fq = glob(os.path.join(configfile["raw_data"],"{sample}","2*","{sample}_fastq_pass").format(sample=sample))
+        fq = glob(os.path.join(config["raw_data"],"{sample}","2*","{sample}_fastq_pass").format(sample=wildcards.samples))
     
     shell:
-        "gunzip  -f {input.gfq} > {output.fq}")
-
-rule cat_fq:
-    input:
-        fqs = glob(os.path.join(configfile["raw_data"],"{sample}","{sample}*","2*","fastq_pass","*fastq").format(sample=sample))
-    output:
-        fq = glob(os.path.join(configfile["raw_data"],"{sample}","{sample}*","2*","{sample}_fastq_pass").format(sample=sample))
-    shell:
-        "cat {input.fqs} > {output.fq}"
+        "gunzip  -f {input.gfq} > {output.fq}"
 
 rule combine_tech_reps:
     input:
-        fqs = lambda wildcards: glob(os.path.join(config["raw_data"],"{sample}", "{sample}*","2**","{sample}_fastq_pass").format(sample=wildcards.sample)
+        fqs = lambda wildcards: glob(os.path.join(config["raw_data"],"{sample}", "{sample}*","2**","{sample}_fastq_pass").format(sample=wildcards.sample))
 
     output:
-        fq = glob(os.path.join(config["raw_data"],"{sample}", "{sample}*","{sample}_fastq_pass").format(sample=sample)
+        fq = glob(os.path.join(config["raw_data"],"{sample}", "{sample}*","{sample}_fastq_pass").format(sample=sample))
 
     shell: """
         cat {input} > {output}
@@ -63,7 +56,7 @@ rule build_index:
         index = "resources/index/genome.mmi"
 
     threads: config["threads"]
-        config["threads"]     
+         
 
     shell:'''
         minimap2 -t {threads} -d {output.index} {input.genome}
@@ -101,7 +94,7 @@ rule flagstat:
         
 rule QC:
     input:
-        summary = lambda wildcards: glob(os.path.join(config["raw_dir"],"{sample}" + "{sample}", "2*", "sequencing_summary.txt").format(sample=wildcards.sample),
+        summary = lambda wildcards: glob(os.path.join(config["raw_dir"],"{sample}" + "{sample}", "2*", "sequencing_summary.txt").format(sample=wildcards.sample)),
         bam = "results/alignments/{samples}.bam"
     output:
         html = "results/QC/{sample}.html",
@@ -132,17 +125,17 @@ rule index_fastq:
         f5 = get_fast5 
 
     output:
-        fastq_index = glob(os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.index").format(sample=samples),
-        fastq_index_fai = glob(os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.index.fai").format(sample=samples),
-        fastq_index_gzi = glob(os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.index.gzi").format(sample=samples),
-        fastq_index_readdb = glob(os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.index.readdb").format(sample=samples)
+        fastq_index = glob(os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.index").format(sample=samples)),
+        fastq_index_fai = glob(os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.index.fai").format(sample=samples)),
+        fastq_index_gzi = glob(os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.index.gzi").format(sample=samples)),
+        fastq_index_readdb = glob(os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.index.readdb").format(sample=samples))
 
     run:
          fast5_dirs=""
          for d in input.f5:
              fast5_dirs += "-d " + d
          
-        c = "nanopolish index -f {input.summary} " + "fast5_dirs" + " {input.fq}"
+         c = "nanopolish index -f {input.summary} " + "fast5_dirs" + " {input.fq}"
          shell(c)
     
 
@@ -170,10 +163,9 @@ rule meth_freq:
     output:
         freq = "results/Methylation/{sample}_frequency.tsv"
 
-    script: ##check    
 
     shell:"""
-    calculate_methylation_frequency.py -s {input.meth} > {output.freq}
+    scripts/calculate_methylation_frequency.py -s {input.meth} > {output.freq}
     """    
 
 
