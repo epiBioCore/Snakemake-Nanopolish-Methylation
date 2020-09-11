@@ -9,6 +9,8 @@ dependencies:
     - pycoQC =2.5.0.23
     - pysam
     - pandas
+    - multiqc
+        
 
-## add pandas? and snakemake utils?
+
 

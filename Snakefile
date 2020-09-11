@@ -24,8 +24,9 @@ rule all:
     input: 
         expand("results/Methylation/{sample}_frequency.tsv",sample=samples),
         expand("results/alignments/{sample}_flagstat.txt",sample=samples),
-        expand("resources/QC/{sample}_pycoQC.json",sample=samples),
-        expand("results/QC/{sample}_pycoQC.html",sample=samples)
+        expand("results/QC/{sample}_pycoQC.html",sample=samples),
+        "results/QC/multiqc_report.html"     
+
 
 
 rule combine_tech_reps:
@@ -170,7 +171,15 @@ rule meth_freq:
     scripts/calculate_methylation_frequency.py -s {input.meth} > {output.freq}
     """    
 
+rule multiqc:
+    input:
+        expand("resources/QC/{sample}_pycoQC.json",sample=samples)
 
+    output:
+        "results/QC/multiqc_report.html"     
+
+    shell:
+        "multiqc -n {output} {input}"
 
 
 
