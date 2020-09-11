@@ -1,13 +1,12 @@
 name: nanopolish
 channels:
-    - conda-forge
     - bioconda
+    - conda-forge        
 dependencies:
     - samtools =1.10
     - snakemake
-    - minimap2
-    - nanopolish 
-    - pycoQC
+    - minimap2 
+    - pycoQC =2.5.0.23
     - pysam
     - pandas
 

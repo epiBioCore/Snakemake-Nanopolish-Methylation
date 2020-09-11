@@ -6,13 +6,8 @@ import glob
 configfile: "config.yaml"
 
 samples_df = pd.read_table(config["samples"],sep = '\t')
-## will want to validate
 samples_df = samples_df.set_index("Sample")
 samples = list(samples_df.index.unique())
-runs = list(samples_df.loc[:,"Project_dir"])
-project_dirs = {}
-for s in samples:
-    project_dirs[s] = list(samples_df.loc[s,"Project_dir"])
 
 
 wildcard_constraints:
@@ -23,9 +18,14 @@ def get_fast5(wildcards):
     f5 = glob.glob(os.path.join(config["raw_data"],wildcards.sample,"2*","fast5_pass"))
     return(f5)
 
+localrules: all,build_index
+
 rule all:
     input: 
-        expand("results/Methylation/{sample}_frequency.tsv",sample=samples)
+        expand("results/Methylation/{sample}_frequency.tsv",sample=samples),
+        expand("results/alignments/{sample}_flagstat.txt",sample=samples),
+        expand("resources/QC/{sample}_pycoQC.json",sample=samples),
+        expand("results/QC/{sample}_pycoQC.html",sample=samples)
 
 
 rule combine_tech_reps:
@@ -36,7 +36,7 @@ rule combine_tech_reps:
         fq = os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.gz")
 
     shell: """
-        zcat {input} > {output}
+        cat {input} > {output}
     """
 
 rule build_index:
@@ -46,11 +46,8 @@ rule build_index:
     output:
         index = "resources/index/genome.mmi"
 
-    threads: config["resources"]["index_genome"]["threads"]
-         
-
     shell:'''
-        minimap2 -t {threads} -d {output.index} {input.genome}
+        minimap2 -d {output.index} {input.genome}
         '''
 
 rule map_reads:
@@ -61,16 +58,17 @@ rule map_reads:
     output:
         bam = "results/alignments/{sample}.bam"
      
-    params:
-        map = config["resources"]["align"]["threads"], 
-        sam =  config["resources"]["samtools_sort"]["threads"]
+    resources:
+        cpus = config["resources"]["align"]["threads"], 
+        time =  config["resources"]["align"]["time"],
+        mem = config["resources"]["align"]["mem"]
 
     log:
         "results/logs/minimap2/{sample}.log"
 
     shell:"""
-        minimap2 -t {params.map} -ax map-ont {input.index} {input.fq} \
-        2> {log} | samtools view -bh - | samtools sort -@ {params.sam} -T {wildcards.sample}.tmp -o {output.bam} - 
+        minimap2 -t {resources.cpus} -ax map-ont {input.index} {input.fq} \
+        2> {log} | samtools view -bh - | samtools sort -@ {resources.cpus} -T {wildcards.sample}.tmp -o {output.bam} - 
         samtools index {output.bam}
         """
 rule flagstat:
@@ -86,20 +84,19 @@ rule flagstat:
         
 rule QC:
     input:
-        summary = lambda wildcards: glob.glob(os.path.join(config["raw_data"],"{sample}", "2*", "sequencing_summary.txt").format(sample=wildcards.sample)),
+        summary = lambda wildcards: glob.glob(os.path.join(config["raw_data"],"{sample}", "2*", "sequencing_summary*.txt").format(sample=wildcards.sample)),
         bam = "results/alignments/{sample}.bam"
     output:
-        html = "results/QC/{sample}.html",
-        json = "resources/QC/{sample}.json"
+        html = "results/QC/{sample}_pycoQC.html",
+        json = "resources/QC/{sample}_pycoQC.json"
 
     shell: '''
-        pycoQC -f {input.summary} -a {input.bam} \
-        -o {output.html} -j {output.json}
+        pycoQC -f {input.summary} -a {input.bam} -o {output.html} -j {output.json}
         '''
 
 rule collect_summaries:
     input:
-        summary = lambda wildcards: glob.glob(os.path.join(config["raw_data"],"{sample}", "2*", "sequencing_summary.txt").format(sample=wildcards.sample))
+        summary = lambda wildcards: glob.glob(os.path.join(config["raw_data"],"{sample}", "2*", "sequencing_summary*.txt").format(sample=wildcards.sample))
 
     output:
         out = os.path.join(config["raw_data"],"{sample}","{sample}_sequencing_summaries.txt")
@@ -122,29 +119,42 @@ rule index_fastq:
         fastq_index_gzi = os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.gz.index.gzi"),
         fastq_index_readdb = os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.gz.index.readdb")
 
+    log: "results/logs/{sample}_nanopolish_index.log"
+
+    params:
+        config["nanopolish_path"] + "/nanopolish"       
+
+    resources:
+        time = "4:00:00"
     run:
          fast5_dirs=""
          for d in input.f5:
-             fast5_dirs += "-d " + d
+             fast5_dirs += " -d " + d
          
-         c = "nanopolish index -f {input.summary} " + "fast5_dirs" + " {input.fq}"
+         c = "{params} index -f {input.summary} " + fast5_dirs + " {input.fq}"
          shell(c)
     
-
 rule call_meth:
     input:
         genome=config["genome"],
+        fastq_index_readdb = os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.gz.index.readdb"),
         fq = os.path.join(config["raw_data"],"{sample}","{sample}_fastq_pass.gz"),
         bam = "results/alignments/{sample}.bam"
 
     output:
-        meth = "results/Methylation/{sample}_methylation_calls.tsv"    
+        meth = "results/Methylation/{sample}_methylation_calls.tsv" 
 
-    threads:
-        config["resources"]["call_meth"]["threads"]
+    params:
+        config["nanopolish_path"] + "/nanopolish"       
+
+    resources:
+        cpus = config["resources"]["call_meth"]["threads"],
+        time = config["resources"]["call_meth"]["time"],
+        mem = config["resources"]["call_meth"]["mem"]
 
     shell: """
-        nanopolish call-methylation -t {threads} -g {input.genome} -r {input.fq} -b {input.bam} >\
+        LD_LIBRARY_PATH="$CONDA_PREFIX/lib"
+        {params} call-methylation -t {resources.cpus} -g {input.genome} -r {input.fq} -b {input.bam} >\
         {output.meth}
         """
 

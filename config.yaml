@@ -1,15 +1,19 @@
 genome: /home/danielle.perley/Ref/mm10.fa
 
-samples: sample_sheet.txt
+samples: samples.txt
 
-raw_data: raw_data
+raw_data: test_data
+
+## path to nanopolish dir, relative to snakemake
+nanopolish_path: "nanopolish"
 
 resources:
   align:
     threads: 32
-  index_genome:  
-    threads: 5
+    time: 4:00:00
+    mem: 100G
   call_meth:
     threads: 36
-  samtools_sort:
-    threads: 16  
+    time: 2-00:00:00
+    mem: 50G
+  
