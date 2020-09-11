@@ -34,7 +34,7 @@ Pipeline can be run with:
 Snakemake
  ```
 
-If running on cluster, you must a directory for the cluster logs ex. "logs_slurm" and create a cluster config.yaml file and place it in your home directory:  
+If running on cluster, you must a directory for the cluster logs ex. "logs_slurm" and create a cluster config.yaml (an example of this file is the "slurm_config.yaml") file and place it in your home directory:  
 ```
  ~/.config/snakemake/slurm/config.yaml
  ```  
