@@ -4,7 +4,7 @@ This pipeline will align nanopore reads to reference genome using minimap2 and c
 ## How to install pipeline:  
 1. Download environment.yaml file and create conda environment.
 ```
-wget 
+wget https://raw.githubusercontent.com/epiBioCore/Snakemake-Nanopolish-Methylation/master/environment.yaml
 conda env create --file environment.yaml
 conda activate nanopolish
 ```
@@ -34,7 +34,7 @@ Pipeline can be run with:
 Snakemake
  ```
 
-If running on cluster, you must create a cluster config.yaml file and place it:  
+If running on cluster, you must a directory for the cluster logs ex. "logs_slurm" and create a cluster config.yaml file and place it in your home directory:  
 ```
  ~/.config/snakemake/slurm/config.yaml
  ```  
