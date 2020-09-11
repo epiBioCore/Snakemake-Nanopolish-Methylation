@@ -1,2 +1,7 @@
 .snakemake/**
 raw_data/**
+nanopolish/**
+results/**
+resources/**
+logs_slurm/**
+test_data/**
