@@ -24,8 +24,8 @@ rule all:
     input: 
         expand("results/Methylation/{sample}_frequency.tsv",sample=samples),
         expand("results/alignments/{sample}_flagstat.txt",sample=samples),
-        expand("results/QC/{sample}_pycoQC.html",sample=samples),
-        "results/QC/multiqc_report.html"     
+        #expand("results/QC/{sample}_pycoQC.html",sample=samples),
+        #"results/QC/multiqc_report.html"     
 
 
 
@@ -126,7 +126,7 @@ rule index_fastq:
         config["nanopolish_path"] + "/nanopolish"       
 
     resources:
-        time = "4:00:00"
+        time = "8:00:00"
     run:
          fast5_dirs=""
          for d in input.f5:
@@ -179,8 +179,19 @@ rule multiqc:
         "results/QC/multiqc_report.html"     
 
     shell:
-        "multiqc -n {output} {input}"
+        "multiqc -f -n {output} {input}"
 
+
+rule bsseq_init:
+    input:
+        meth=expand("results/Methylation/{sample}_frequency.tsv",sample=samples),
+        meta=config["metadata"]
+
+    output:
+          "bsseq.rda"
+
+    script:
+        "scripts/bsseq_init.R"        
 
 
             

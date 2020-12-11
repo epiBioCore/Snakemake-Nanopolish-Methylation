@@ -1,7 +1,9 @@
-name: nanopolish
+name: nanopolish2
 channels:
+    - conda-forge
     - bioconda
-    - conda-forge        
+    - r 
+    - defaults       
 dependencies:
     - samtools =1.10
     - snakemake
@@ -10,7 +12,13 @@ dependencies:
     - pysam
     - pandas
     - multiqc
-        
-
-
-
+    - r-base=4.0.3
+    - r-tidyverse=1.3
+    - bioconductor-dss=2.36
+    - bioconductor-bsseq=1.24
+    - bioconductor-annotatr=1.14
+    - bioconductor-chipseeker=1.26
+    - bioconductor-do.db=2.9=r40_9
+    - r-data.table=1.13
+    - r-dtplyr
+    - mamba

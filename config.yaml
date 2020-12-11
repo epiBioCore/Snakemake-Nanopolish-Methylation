@@ -1,7 +1,8 @@
+
 genome: /home/danielle.perley/Ref/mm10.fa
-
 samples: samples.txt
-
+metadata: 20-004_006_samples.txt
+comparisons: 20-004_006_comparisons.txt
 raw_data: raw_data
 
 ## path to nanopolish dir, relative to snakemake
@@ -14,6 +15,37 @@ resources:
     mem: 100G
   call_meth:
     threads: 36
-    time: 2-00:00:00
+    time: 8-00:00:00
     mem: 100G
-  
+  dml:
+    threads: 25
+    time: 6:00:00  
+    mem: 100G
+  bssmooth:
+    threads: 10
+    time: 12:00:00
+    mem: 250G
+
+delta: 0.2
+
+txdb_annotation:
+  species: mmusculus
+  annotation: UCSC
+  build: mm10
+  ## version is for ensembl packages
+  version: v101
+
+beta_distribution:
+  col_by:
+    - Group
+    - Genotype
+    - PND
+    - Sex
+
+pca:
+  sample_labels: true
+  col:
+    - Group
+    - Genotype
+    - PND
+    - Sex
