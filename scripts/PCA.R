@@ -34,6 +34,6 @@ lapply(dims,function(d) {
           p <-  p +
            geom_text_repel(aes(label = CoreNumber))
        }
-       ggsave(p,file=paste0("PCA_",dim1,"vs",dim2,"_colored_by_",v,".pdf"))         
+       ggsave(p,file=paste0("results/Differential_Methylation/PCA_",dim1,"vs",dim2,"_colored_by_",v,".pdf"))         
     })
 })   

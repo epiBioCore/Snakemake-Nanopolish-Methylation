@@ -29,9 +29,11 @@ txdb <- get(txdb_pkg)
 
 l <- read.delim(snakemake@input[["list"]],header=T)
 
+if ("pos" %in% colnames(l))  {
+    l$end <- l$pos
+    colnames(l)[2] <- "start"
+}
 
-l$end <- l$pos
-colnames(l)[2] <- "start"
 gr <- makeGRangesFromDataFrame(l,keep.extra.columns = T)
 annotated_l <- annotatePeak(gr,TxDb=txdb,annoDb = species_pkg)
 
@@ -57,7 +59,7 @@ annotated_2 <- mutate(annotated_2,annot.type=gsub("inter","open_sea",annot.type)
 cpg_island_counts <- annotated_2$n
 names(cpg_island_counts) <- annotated_2$annot.type
 cpg_island_counts
-cpg_island_counts <- cpg_island_counts[c(1:2,4,3)]
+cpg_island_counts <- cpg_island_counts[order(factor(names(cpg_island_counts),levels=c("sea","island","shores","shelvs")))]
 cpg_island_percent <- round(cpg_island_counts*100/sum(cpg_island_counts),2)
 
 labels <- paste0(names(cpg_island_percent)," (",cpg_island_percent,"%)")

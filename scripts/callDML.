@@ -1,16 +1,4 @@
-log <- file(snakemake@log[[1]], open="wt")
-sink(log)
-sink(log, type="message")
 
-library(DSS)
-library(bsseq)
-library(BiocParallel)
-library(tidyverse)
-
-load(snakemake@input[[1]])
-
-treat <- name[1]
-control <- name[2]
 
 ## create Directories for output
 dir.create(dirname(snakemake@output[["dml"]]),recursive=T,showWarnings=F)
@@ -36,7 +24,6 @@ write.table(Sig_DMR,file=snakemake@output[["dmr"]],sep="\t",row.names=F,quote=F)
 
 ## all
 all <- as.data.frame(dml)
-class(all) <- "data.frame"
 all <- rename(all,!!paste(treat,"mean",sep="."):=mu1,
                         !!paste(control,"mean",sep="."):=mu2,
                         !!paste(treat,"dispersion",sep="."):=phi1,

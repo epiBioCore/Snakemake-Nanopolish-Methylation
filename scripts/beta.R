@@ -22,15 +22,16 @@ meth %>%
 
 
 for (var in snakemake@params[["var"]]) {
-
-  if (! var %in% colnames(p)) {
-    cat(paste(var,"is not a variable in metadata")
-    next
+ 
+if (! var %in% colnames(p)) {
+  cat(paste(var,"is not a variable in metadata"))
+  next
   } 
-  ggplot(plot_df,aes_string(x="beta",color=var)) +
-  geom_density(aes(group=Sample)) +
-  theme_bw()
 
-  ggsave(file=paste0("beta_distribution_color_by_",var,".pdf")
-  }}
+g <- ggplot(plot_df,aes_string(x="beta",color=var)) +
+geom_density(aes(group=Sample)) +
+theme_bw()
+
+ggsave(g,file=paste0("results/Differential_Methylation/beta_distribution_colored_by_",var,".pdf"))
+  
 }

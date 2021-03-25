@@ -19,11 +19,12 @@ resources:
     mem: 100G
   dml:
     threads: 25
-    time: 6:00:00  
-    mem: 100G
+    time: 15:00:00  
+    mem: 300G
+    partition: talon-fat
   bssmooth:
     threads: 10
-    time: 12:00:00
+    time: 24:00:00
     mem: 250G
 
 delta: 0.2
@@ -40,7 +41,7 @@ beta_distribution:
     - Group
     - Genotype
     - PND
-    - Sex
+  
 
 pca:
   sample_labels: true
@@ -48,4 +49,4 @@ pca:
     - Group
     - Genotype
     - PND
-    - Sex
+  

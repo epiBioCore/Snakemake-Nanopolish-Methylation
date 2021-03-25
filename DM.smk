@@ -13,7 +13,7 @@ include: "Common.smk"
 configfile: "config.yaml"
 
 samples = []
-with open(config["samples"]) as f:
+with open(config["metadata"]) as f:
     reader = csv.reader(f,delimiter = "\t")
     next(reader)
     for row in reader:
@@ -56,16 +56,24 @@ def get_bioc_pkg_path(wildcards):
 def get_bioc_txdb_pkg_path(wildcards):
     return "resources/bioconductor_txdb/lib/R/library/{pkg}".format(pkg=get_bioc_TxDb_pkg(wildcards))
 
+
 localrules: all, download_bioconductor_annotation_packages,download_bioconductor_txdb_packages
 
 rule all:
     input:
-        expand("beta_distribution_colored_by_{var}.pdf",var=config["beta_distribution"]["col_by"]),
-        expand("PCA_PC1vsPC2_colored_by_{var}.pdf",var=config["pca"]["col"]),
+        expand("results/Differential_Methylation/beta_distribution_colored_by_{var}.pdf",var=config["beta_distribution"]["col_by"]),
+        expand("results/Differential_Methylation/PCA_PC1vsPC2_colored_by_{var}.pdf",var=config["pca"]["col"]),
+        expand("results/R_Objects/{contrast}_DMLtest.rda",contrast=dict.keys(contrasts)),
         expand("results/Differential_Methylation/{contrast}_SIG_Meth_CpGs_annotated.txt",contrast=dict.keys(contrasts)),
         expand("results/Differential_Methylation/{contrast}_SIG_Meth_regions_annotated.txt",contrast=dict.keys(contrasts)),
         expand("results/Differential_Methylation/{contrast}_ALL_CpgGs_annotated.txt",contrast=dict.keys(contrasts)),
+        "results/Differential_Methylation/DM_summary.txt",
+        expand("results/Sample_Bedgraphs/{sample}.bdg",sample=samples),
+        expand("results/Differential_Methylation_Bed/{contrast}_SIG_Meth_regions.bed",contrast=dict.keys(contrasts)),
+        expand("results/Differential_Methylation_Bed/{contrast}_SIG_Meth_CpGs.bed",contrast=dict.keys(contrasts))
 
+
+   
 
 rule bsseq_init:
     input:
@@ -79,7 +87,8 @@ rule bsseq_init:
     params:
         partition="talon"
     
-
+    log:
+        "results/logs/R/bsseq_init.txt"
     script:
         "scripts/bsseq_init.R"   
 
@@ -92,13 +101,15 @@ rule DML_test:
         
     params:
         get_contrast, 
-        partition="talon"
+        partition=config["resources"]["dml"]["partition"]
 
     resources:
         cpus = config["resources"]["dml"]["threads"],
         time = config["resources"]["dml"]["time"], 
         mem = config["resources"]["dml"]["mem"]
 
+    benchmark:
+        "results/benchmarks/DML_test_{contrast}.txt"
 
     log:
         "results/logs/R/DML_test_{contrast}.txt"
@@ -160,7 +171,7 @@ rule annotate_DM:
     output:
         gene_annot_pie = "results/Differential_Methylation/{list}_gene_annotation_pie.pdf",
         list = "results/Differential_Methylation/{list}_annotated.txt",
-        cpg_annot_pie = "results/Differential_Methylation/{list}_CpG_island_annotation_barchart.pdf"
+        cpg_annot_pie = "results/Differential_Methylation/{list}_CpG_island_annotation_pie.pdf"
 
 
     params:
@@ -184,8 +195,12 @@ rule bssmooth:
         s = "results/R_Objects/bsseq_smoothed.rda"  
 
     log:
-        "results/logs/bssmooth/bssmooth.txt"      
+        "results/logs/bssmooth/bssmooth.txt"
 
+    benchmark:
+        "results/benchmarks/bssmooth.txt"          
+    conda:
+        "R_env.yaml"
     resources:
         cpus = config["resources"]["bssmooth"]["threads"],
         time = config["resources"]["bssmooth"]["time"],
@@ -202,14 +217,18 @@ rule beta:
         s = "results/R_Objects/bsseq_smoothed.rda"  
 
     output:
-        beta= "beta_distribution_colored_by_{var}.pdf"
+        beta= expand("results/Differential_Methylation/beta_distribution_colored_by_{var}.pdf",var=config["beta_distribution"]["col_by"])
 
     params:
-        vars=config["beta_distribution"]["col_by"],
-        partition="talon"
+        var=config["beta_distribution"]["col_by"],
+        partition="talon-fat"
 
+    conda:
+        "R_env.yaml"
+    resources:
+        mem = "300G"
     log:
-        "results/logs/R/beta_distribution_by_{var}.txt"
+        "results/logs/R/beta_distribution.txt"
     script:
         "scripts/beta.R"    
 
@@ -218,16 +237,91 @@ rule pca:
         s = "results/R_Objects/bsseq_smoothed.rda"  
 
     output:
-        pca = "PCA_{dim}_colored_by_{var}.pdf"
+        expand("results/Differential_Methylation/PCA_{dim}_colored_by_{var}.pdf",dim=["PC1vsPC2","PC1vsPC3","PC2vsPC3"],var=config["pca"]["col"])
 
     params:
         labs = config["pca"]["sample_labels"],
         col = config["pca"]["col"],
         partition="talon"
 
+    conda:
+        "R_env.yaml"    
     log:
-        "results/logs/R/PCA_{dim}_colored_by_{var}.txt"
+        "results/logs/R/PCA.txt"
 
     script:
         "scripts/PCA.R"
 
+rule DM_summary:
+    input:
+        dml = expand("results/Differential_Methylation/{contrast}_SIG_Meth_CpGs.txt",contrast=dict.keys(contrasts)),
+        dmr = expand("results/Differential_Methylation/{contrast}_SIG_Meth_regions.txt",contrast=dict.keys(contrasts))
+
+    output:
+        "results/Differential_Methylation/DM_summary.txt"    
+
+    log:
+        "results/logs/R/DM_summary_log.txt"
+
+    conda:
+        "R_env.yaml"
+
+    params:
+        partition = "talon"
+        
+    script:
+        "scripts/DM_summary.R"
+
+rule sample_bedgraphs:
+    input:
+        s = "results/R_Objects/bsseq_smoothed.rda"  
+
+    output:
+        "results/Sample_Bedgraphs/{sample}.bdg"
+
+    log:
+        "results/logs/R/{sample}_bedgraph.out.txt"
+
+    params:
+        partition = "talon"    
+    conda:
+        "R_env.yaml"    
+    script:
+        "scripts/bedgraphs.R"    
+
+rule dml_bed:
+    input:
+        dml = "results/Differential_Methylation/{contrast}_SIG_Meth_CpGs.txt",
+
+    output:
+        dml = "results/Differential_Methylation_Bed/{contrast}_SIG_Meth_CpGs.bed"     
+ 
+    log:
+        "results/logs/R/{contrast}_dml_bed.txt"
+
+    params:
+        partition = "talon"
+
+    conda:
+        "R_env.yaml"    
+
+    script:
+        "scripts/Differential_Meth_bed.R"
+
+rule dmr_bed:
+    input:
+        dml = "results/Differential_Methylation/{contrast}_SIG_Meth_regions.txt",
+
+    output:
+        dml = "results/Differential_Methylation_Bed/{contrast}_SIG_Meth_regions.bed"     
+ 
+    log:
+        "results/logs/R/{contrast}_dmr_bed.txt"
+    conda:
+        "R_env.yaml"    
+
+    params:
+        partition = "talon"
+            
+    script:
+        "scripts/Differential_Meth_bed.R"    
